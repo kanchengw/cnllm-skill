@@ -28,7 +28,7 @@ DeepSeek, GLM (Zhipu), KIMI (Moonshot), MiniMax, Doubao (ByteDance), Xiaomi mimo
 pip install cnllm
 ```
 
-For latest features, ensure version >=0.9.3post2.
+For latest features, ensure version >=0.9.3post3.
 
 ## Basic Principles
 
@@ -53,55 +53,72 @@ Use **OpenAI standard parameters**, configure vendor-native ones if needed, whic
 
 ## Chat Examples
 
-### 1. Single Chat with Streaming Incremental Access and Live View (`.repr`)
+### 1. Single Chat with Streaming Incremental Access and Live View
+
 ```python
 import os
-from cnllm import CNLLM
+from cnllm import CNLLM, ToolCollector
 
-client = CNLLM(model="deepseek-chat", api_key=os.getenv("DEEPSEEK_KEY")) 
-resp = client.chat.create(messages=[{"role": "user", "content": "Hello"}], stream=True, thinking=True)
+client = CNLLM(model="deepseek-chat", api_key=os.getenv("DEEPSEEK_KEY"))
+resp = client.chat.create(messages=[{"role": "user", "content": "Hello"}],
+                          stream=True, thinking=True, tools=[...])
 
-# ── Streaming Incremental Access and Live View (For streaming, iteration is mandatory, view is optional) ──
-with resp.repr as view:   # live view of streaming process: {dict_of_merged_chunks}
+# ── Streaming: iterate ALL chunks to consume the stream ──
+#    chunk.* returns per-frame delta (mandatory)
+#    with resp as view: terminal live dict (optional)
+frontend_content = []
+frontend_reasoning = []
+frontend_tools = ToolCollector()   # auto-merge tool_calls by index
+
+with resp as view:
     for chunk in resp:
-        frontend_still.append(chunk.still)   # incremetal delta.content 
-        frontend_think.append(chunk.think)   # incremetal delta.reasoning_content
+        frontend_content.append(chunk.still)
+        frontend_reasoning.append(chunk.think)
+        frontend_tools.update(chunk.tools)  # List[Dict] per-frame delta
         view.refresh()
 
 # ── After stream: resp.* returns fully accumulated results ──
 print(resp.still)  # fully accumulated content
 print(resp.think)  # fully accumulated reasoning
-print(resp.tools)  # fully accumulated tool_calls
-print(resp)  # final merged dict
+print(resp.tools)  # List[Dict], OpenAI standard format, no index
+print(resp)        # final merged dict
+
+# ── Build next-turn conversation context ──
+from cnllm import ContextBox
+
+messages += ContextBox(resp.still, resp.think, resp.tools,
+                       executor=execute_tool)  # define your own tool executor function
+# → assistant message + tool_calls attached + tool results appended
 ```
 
-### 2. Streaming Batch with Per‑Request Incremental Access (`chunk.*`) and Live View (`resp.repr`)
+### 2. Streaming Batch with Per‑Request Incremental Access and Live View
 ```python
 resp = client.chat.batch(
     prompt=["Weather in Beijing", "Weather in Shanghai"],
     stream=True,
 )
 
-with resp.repr as view:              # terminal live view : {status + usage}
+with resp as view:              # terminal live view: {status + usage}
     for chunk in resp:
         rid = chunk["request_id"]
-        frontend[rid].append(chunk.still)  # route delta to per-request UI panel
+        frontend[rid].append(chunk.still)  # route delta to per-request panel
         view.refresh()
 
 print(resp.still)  # {"request_0": "...", "request_1": "..."}
+print(resp.tools)  # {"request_0": [{tool_call}], "request_1": []}  List[Dict] per request
 ```
 
 ### 3. Mixed Batch (stream + non-stream) with Live View
 ```python
 resp = client.chat.batch(requests=[
     {"prompt": "Weather", "stream": True, "tools": [weather_tool]},
-    {"prompt": "1+1=?"},  # non-streaming
+    {"prompt": "1+1=?"},
     {"prompt": "Hello", "stream": True},
 ])
 
-with resp.repr as view:
+with resp as view:
     for chunk in resp:
-        frontend[chunk["request_id"]].append(chunk.still)  # only streaming requests yield chunks
+        frontend[chunk["request_id"]].append(chunk.still)
         view.refresh()
 
 print(resp.still)  # content of all requests
@@ -138,7 +155,7 @@ During iteration, all fields are available, independent of `keep`.
     "results": {"request_0": {...}, "request_1": {...}},  # Mapping of all successful requests' request_id to standard responses
     "think": {"request_0": "...", "request_1": "..."},
     "still": {"request_0": "...", "request_1": "..."},
-    "tools": {"request_0": {...}, "request_1": {...}},
+    "tools": {"request_0": [{tool_call}], "request_1": [{tool_call}]},  # List[Dict] per request
     "raw": {"request_0": {...}, "request_1": {...}}
 }
 ```
@@ -155,16 +172,26 @@ During iteration, all fields are available, independent of `keep`.
 }
 ```
 
+## Highlights
+
+| Feature | Description | Import |
+|---------|-------------|--------|
+| `chunk.still` / `chunk.think` / `chunk.tools` | Per-frame delta during streaming | Built-in on `StreamChunk` |
+| `ToolCollector` | Auto-merge tool_calls by index | `from cnllm import ToolCollector` |
+| `ContextBox` | Build conversation context from `resp.*` | `from cnllm import ContextBox` |
+| `with resp as view:` | Terminal live dict during streaming | Built-in on all responses |
+
 ## Examples (See `examples/` directory)
 
-- `streaming_incremental.py` – single streaming with `chunk.*` + `resp.repr`
-- `batch_streaming.py` – batch streaming with `request_id` routing + `resp.repr`
-- `mixed_batch.py` – mixed (stream+non-stream) batch with `chunk.*`
+- `streaming_incremental.py` – single streaming with `chunk.*` + `resp as view`
+- `batch_streaming.py` – batch streaming with `request_id` routing
+- `mixed_batch.py` – mixed (stream+non-stream) batch
 - `embeddings.py` – single/batch embedding requests
 - `fallback.py` – `fallback_models` with detailed error handling
 - `async_client.py` – async client usage with `asyncCNLLM`
 - `langchain_integration.py` – LangChain Runnable integration
 - `batch_customization.py` – `custom_ids` and `callbacks`
+- `tool_chain.py` – multi-turn tool calling with `ContextBox`
 
 ## References (See `references/` directory)
 

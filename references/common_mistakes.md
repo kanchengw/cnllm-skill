@@ -27,9 +27,9 @@ print(resp.results)   # now available
 3. **Mixing batch-level and per-request `stop_on_error`**
 - `stop_on_error` only works as batch-level parameter, not inside per-request dict. If not configured, errors are isolated.
 
-4. **Using `print(resp)` or `print(chunk.still, end="")` inside `with resp.repr as view:`**
+4. **Using `print(resp)` or `print(chunk.still, end="")` inside `with resp as view:`**
 ```python
-with resp.repr as view:
+with resp as view:
     for chunk in resp:
         print(chunk.still, end="")  # ❌ conflicts with Rich Live ANSI control
         view.refresh()
@@ -38,7 +38,7 @@ with resp.repr as view:
 ✅ **Correct:** feed data to non-terminal destinations (frontend UI, list, etc.)
 ```python
 frontend = []
-with resp.repr as view:
+with resp as view:
     for chunk in resp:
         frontend.append(chunk.still)  # feed to UI/log; no print()
         view.refresh()
@@ -70,7 +70,9 @@ for chunk in resp:
 ```python
 for chunk in resp:
     print(chunk.still)  # per-chunk delta
-print(resp.still)  # full accumulated result
+    print(chunk.tools)  # List[Dict] per-frame delta, index preserved
+print(resp.still)  # full accumulated content
+print(resp.tools)  # List[Dict], OpenAI standard, no index
 ```
 
 7. **Calling `resp.wait()` on mixed/streaming batch**
