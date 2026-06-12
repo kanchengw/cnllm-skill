@@ -19,7 +19,7 @@ license: Complete terms in LICENSE.txt
 
 ## Vendor Support
 
-DeepSeek, GLM (Zhipu), KIMI (Moonshot), MiniMax, Doubao (ByteDance), Xiaomi mimo, Qwen (Alibaba), Ernie (Baidu), Hunyuan (Tencent). 
+DeepSeek, GLM (Zhipu), KIMI (Moonshot), MiniMax, Doubao (ByteDance), Xiaomi mimo, Qwen (Alibaba), Ernie (Baidu), Hunyuan (Tencent), Step (阶跃星辰). 
 (Model list see `docs/model_list.md`)
 
 ## Installation & Version
@@ -28,7 +28,7 @@ DeepSeek, GLM (Zhipu), KIMI (Moonshot), MiniMax, Doubao (ByteDance), Xiaomi mimo
 pip install cnllm
 ```
 
-For latest features, ensure version >=0.9.3post3.
+For latest features, ensure version >=0.9.10.
 
 ## Basic Principles
 
@@ -50,6 +50,7 @@ Use **OpenAI standard parameters**, configure vendor-native ones if needed, whic
 | `retry_delay`     | `float` | `1.0`      | Retry delay    |
 | `max_concurrent`  | `int`   | `3`(chat)/`12`(embeddings) | Maximum concurrent requests, batch only |
 | `rps`             | `int`   | `2`(chat)/`10`(embeddings) | Maximum requests per second, batch only |
+| `performance`     | `bool`  | `False`  | Pooled distribution: weighted by model throughput, requires `fallback_models` |
 
 ## Chat Examples
 
@@ -124,6 +125,10 @@ with resp as view:
 print(resp.still)  # content of all requests
 ```
 Note: Streaming and mixed batch **must be iterated** to trigger request processing, `resp.still`/`resp.think`/`resp.tools` complete after iteration.
+
+### 5. Non-Streaming Batch with Adaptive Scheduling
+
+Non-streaming batch (`chat.batch(stream=False)`) uses an adaptive scheduler by default — dynamic concurrency, RPS limiting, RPM learning, and 429 freeze/thaw. Pass `max_concurrent`/`rps` explicitly to override with fixed values. With `fallback_models` + `performance=True`, requests distribute by model throughput; `max_concurrent`/`rps` cannot be set when `performance=True`.
 
 ### 4. Parameter Validation (`drop_params`) and Memory Control (`keep`)
 ```python

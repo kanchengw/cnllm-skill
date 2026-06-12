@@ -56,6 +56,7 @@
 - `mimo-v2.5`
 
 ### MiniMax
+- `MiniMax-M3`
 - `MiniMax-M2`
 - `MiniMax-M2.1`
 - `MiniMax-M2.5`
@@ -64,6 +65,8 @@
 - `MiniMax-M2.7-highspeed`
 
 ### Qwen (Alibaba)
+- `qwen3.7-max`
+- `qwen3.7-plus`
 - `qwen3.6-max-preview`
 - `qwen3.6-plus`
 - `qwen3.6-flash`
@@ -88,6 +91,10 @@
 - `ernie-lite-pro-128k` (alias: `ernie-lite-pro`)
 - `ernie-x1.1`
 - `ernie-x1-turbo-32k` (alias: `ernie-x1-turbo`)
+
+### Step (阶跃星辰)
+- `step-3-5-flash`
+- `step-3-7-flash`
 
 ### Hunyuan (Tencent)
 - `hy3-preview`
